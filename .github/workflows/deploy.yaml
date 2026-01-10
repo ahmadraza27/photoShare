@@ -1,33 +1,48 @@
-name: Simple Deploy
+name: Deploy to Azure
 
-on: [push]
+on:
+  push:
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
     
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-    
-    - name: Build React
-      working-directory: ./frontend
+    - name: Create deployment package
       run: |
+        echo "Creating deployment package..."
+        
+        # 1. Build React
+        cd photoshare-frontend
         npm ci
         npm run build
-        cp -r build ../photoshare_backend/
-    
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+        
+        # 2. Copy to Django
+        cd ..
+        mkdir -p photoshare_backend/static
+        cp -r photoshare-frontend/build/* photoshare_backend/static/
+        
+        # 3. Create required Azure files
+        cd photoshare_backend
+        echo "python-3.11" > runtime.txt
+        
+        cat > .deployment << 'EOF'
+        [config]
+        SCM_DO_BUILD_DURING_DEPLOYMENT = true
+        EOF
+        
+        echo "gunicorn photoshare_backend.wsgi:application --bind 0.0.0.0:8000" > startup.txt
+        
+        # 4. Create zip
+        zip -r ../deploy.zip .
     
     - name: Deploy to Azure
-      uses: azure/webapps-deploy@v2
+      uses: azure/webapps-deploy@v3
       with:
-        app-name: 'photoshare-app'
-        publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
-        package: ./photoshare_backend
+        app-name: 'student-django-api'
+        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_D17452D3EFC946F0B4490BB61637C123 }}
+        package: deploy.zip
