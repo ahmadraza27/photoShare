@@ -12,33 +12,59 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Create deployment package
+    - name: Build React app
+      working-directory: ./frontend
       run: |
-        echo "Creating deployment package..."
-        
-        # 1. Build React
-        cd photoshare-frontend
         npm ci
         npm run build
-        
-        # 2. Copy to Django
-        cd ..
-        mkdir -p photoshare_backend/static
-        cp -r photoshare-frontend/build/* photoshare_backend/static/
-        
-        # 3. Create required Azure files
-        cd photoshare_backend
+    
+    - name: Copy React to Django
+      run: |
+        mkdir -p backend/static
+        cp -r frontend/build/* backend/static/
+    
+    - name: Prepare Django for Azure
+      working-directory: ./backend
+      run: |
+        # Create Azure config files
         echo "python-3.11" > runtime.txt
         
         cat > .deployment << 'EOF'
-        [config]
-        SCM_DO_BUILD_DURING_DEPLOYMENT = true
-        EOF
+[config]
+SCM_DO_BUILD_DURING_DEPLOYMENT = true
+EOF
         
-        echo "gunicorn photoshare_backend.wsgi:application --bind 0.0.0.0:8000" > startup.txt
+        # Find Django project name
+        DJANGO_PROJECT=$(find . -name "wsgi.py" -type f | head -1 | xargs dirname | xargs basename)
+        if [ -n "$DJANGO_PROJECT" ]; then
+          echo "Django project found: $DJANGO_PROJECT"
+          echo "gunicorn $DJANGO_PROJECT.wsgi:application --bind 0.0.0.0:8000" > startup.txt
+        else
+          # Fallback to photoshare_backend
+          echo "gunicorn photoshare_backend.wsgi:application --bind 0.0.0.0:8000" > startup.txt
+        fi
         
-        # 4. Create zip
-        zip -r ../deploy.zip .
+        # Check for requirements.txt
+        if [ ! -f "requirements.txt" ]; then
+          echo "Creating requirements.txt..."
+          cat > requirements.txt << 'REQEOF'
+Django>=5.0.1
+djangorestframework
+django-cors-headers
+psycopg2-binary
+gunicorn
+whitenoise
+django-storages[azure]
+azure-storage-blob
+pillow
+REQEOF
+        fi
+    
+    - name: Create deployment package
+      working-directory: ./backend
+      run: |
+        # Create zip excluding development files
+        zip -r ../deploy.zip . -x "env/*" "__pycache__/*" "*.pyc" "media/*" "*.sqlite3"
     
     - name: Deploy to Azure
       uses: azure/webapps-deploy@v3
@@ -46,3 +72,17 @@ jobs:
         app-name: 'student-django-api'
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_D17452D3EFC946F0B4490BB61637C123 }}
         package: deploy.zip
+    
+    - name: Verify deployment
+      run: |
+        echo "✅ Deployment submitted!"
+        echo ""
+        echo "📋 IMPORTANT: Set these in Azure Portal → Configuration:"
+        echo "   WEBSITES_PORT=8000"
+        echo "   SCM_DO_BUILD_DURING_DEPLOYMENT=true"
+        echo "   SECRET_KEY=your-secret-key"
+        echo "   DEBUG=False"
+        echo "   DB_NAME, DB_USER, DB_PASSWORD, DB_HOST"
+        echo "   AZURE_ACCOUNT_NAME, AZURE_ACCOUNT_KEY, AZURE_CONTAINER"
+        echo ""
+        echo "🌐 Your app: https://student-django-api.azurewebsites.net"
