@@ -192,7 +192,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 AZURE_ACCOUNT_NAME = os.environ.get("AZURE_ACCOUNT_NAME")
 AZURE_ACCOUNT_KEY = os.environ.get("AZURE_ACCOUNT_KEY")
 AZURE_CONTAINER = "media"
-MEDIA_URL = "https://studentimagestore.blob.core.windows.net/media?sp=r&st=2026-01-10T15:31:20Z&se=2027-01-10T23:46:20Z&spr=https&sv=2024-11-04&sr=c&sig=O7nJbBI9hQTLKxoNNIRGv4jjrQNKa2NYqGNqWIZJWNs%3D"
+MEDIA_URL = "https://studentimagestore.blob.core.windows.net/media?sp=r&st=2026-01-10T15:31:20Z&se=2027-01-10T23:46:20Z&spr=https&sv=2024-11-04&sr=c&sig=O7nJbBI9hQTLKxoNNIRGv4jjrQNKa2NYqGNqWIZJWNs%3D/"
 # MEDIA_URL = f"https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER}/"
 # MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

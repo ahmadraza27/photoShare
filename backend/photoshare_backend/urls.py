@@ -9,7 +9,7 @@ from django.urls import path, include,re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
-
+from django.views.generic import TemplateView
 from api.views import (
     UserViewSet, PhotoViewSet, CommentViewSet, RatingViewSet,
     CustomAuthToken, UserRegistrationView
