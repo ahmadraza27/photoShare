@@ -65,7 +65,7 @@ function SearchPhotos() {
     if (allPhotos.length > 0) {
       applyFilters();
     }
-  }, [applyFIlters,filters, allPhotos]);
+  }, [applyFilters,filters, allPhotos]);
 
   const handleSearch = async (e) => {
     e?.preventDefault();
