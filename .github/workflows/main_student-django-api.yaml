@@ -39,26 +39,23 @@ jobs:
       run: |
         echo "python-3.11" > runtime.txt
         
-        cat > .deployment << 'EOF'
-[config]
-SCM_DO_BUILD_DURING_DEPLOYMENT = true
-EOF
+        # Create .deployment without heredoc
+        echo "[config]" > .deployment
+        echo "SCM_DO_BUILD_DURING_DEPLOYMENT = true" >> .deployment
         
         echo "gunicorn photoshare_backend.wsgi:application --bind 0.0.0.0:8000" > startup.txt
         
-        # Ensure requirements.txt exists
+        # Create requirements.txt without nested heredoc
         if [ ! -f "requirements.txt" ]; then
-          cat > requirements.txt << 'REQEOF'
-Django>=5.0.1
-djangorestframework
-django-cors-headers
-psycopg2-binary
-gunicorn
-whitenoise
-django-storages[azure]
-azure-storage-blob
-pillow
-REQEOF
+          echo "Django>=5.0.1" > requirements.txt
+          echo "djangorestframework" >> requirements.txt
+          echo "django-cors-headers" >> requirements.txt
+          echo "psycopg2-binary" >> requirements.txt
+          echo "gunicorn" >> requirements.txt
+          echo "whitenoise" >> requirements.txt
+          echo "django-storages[azure]" >> requirements.txt
+          echo "azure-storage-blob" >> requirements.txt
+          echo "pillow" >> requirements.txt
         fi
     
     - name: Install Python dependencies
