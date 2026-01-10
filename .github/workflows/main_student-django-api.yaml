@@ -3,6 +3,7 @@ name: Deploy to Azure
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -11,6 +12,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
     
     - name: Build React app
       working-directory: ./frontend
@@ -23,10 +29,14 @@ jobs:
         mkdir -p backend/static
         cp -r frontend/build/* backend/static/
     
-    - name: Prepare Django for Azure
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Create Azure config files
       working-directory: ./backend
       run: |
-        # Create Azure config files
         echo "python-3.11" > runtime.txt
         
         cat > .deployment << 'EOF'
@@ -34,19 +44,10 @@ jobs:
 SCM_DO_BUILD_DURING_DEPLOYMENT = true
 EOF
         
-        # Find Django project name
-        DJANGO_PROJECT=$(find . -name "wsgi.py" -type f | head -1 | xargs dirname | xargs basename)
-        if [ -n "$DJANGO_PROJECT" ]; then
-          echo "Django project found: $DJANGO_PROJECT"
-          echo "gunicorn $DJANGO_PROJECT.wsgi:application --bind 0.0.0.0:8000" > startup.txt
-        else
-          # Fallback to photoshare_backend
-          echo "gunicorn photoshare_backend.wsgi:application --bind 0.0.0.0:8000" > startup.txt
-        fi
+        echo "gunicorn photoshare_backend.wsgi:application --bind 0.0.0.0:8000" > startup.txt
         
-        # Check for requirements.txt
+        # Ensure requirements.txt exists
         if [ ! -f "requirements.txt" ]; then
-          echo "Creating requirements.txt..."
           cat > requirements.txt << 'REQEOF'
 Django>=5.0.1
 djangorestframework
@@ -60,29 +61,20 @@ pillow
 REQEOF
         fi
     
+    - name: Install Python dependencies
+      working-directory: ./backend
+      run: |
+        pip install -r requirements.txt
+        pip install gunicorn whitenoise
+    
     - name: Create deployment package
       working-directory: ./backend
       run: |
-        # Create zip excluding development files
-        zip -r ../deploy.zip . -x "env/*" "__pycache__/*" "*.pyc" "media/*" "*.sqlite3"
+        zip -r ../deploy.zip . -x "env/*" "__pycache__/*" "*.pyc" "media/*"
     
     - name: Deploy to Azure
       uses: azure/webapps-deploy@v3
       with:
         app-name: 'student-django-api'
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_D17452D3EFC946F0B4490BB61637C123 }}
-        package: deploy.zip
-    
-    - name: Verify deployment
-      run: |
-        echo "✅ Deployment submitted!"
-        echo ""
-        echo "📋 IMPORTANT: Set these in Azure Portal → Configuration:"
-        echo "   WEBSITES_PORT=8000"
-        echo "   SCM_DO_BUILD_DURING_DEPLOYMENT=true"
-        echo "   SECRET_KEY=your-secret-key"
-        echo "   DEBUG=False"
-        echo "   DB_NAME, DB_USER, DB_PASSWORD, DB_HOST"
-        echo "   AZURE_ACCOUNT_NAME, AZURE_ACCOUNT_KEY, AZURE_CONTAINER"
-        echo ""
-        echo "🌐 Your app: https://student-django-api.azurewebsites.net"
+        package: ../deploy.zip
