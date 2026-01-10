@@ -1,0 +1,33 @@
+name: Simple Deploy
+
+on: [push]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Build React
+      working-directory: ./frontend
+      run: |
+        npm ci
+        npm run build
+        cp -r build ../photoshare_backend/
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Deploy to Azure
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'photoshare-app'
+        publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+        package: ./photoshare_backend
